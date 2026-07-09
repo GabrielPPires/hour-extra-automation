@@ -1,0 +1,83 @@
+Private Sub Worksheet_Change(ByVal Target As Range)
+
+    Dim rngIPN As Range
+    Dim rngData As Range
+    Dim rngMonitorado As Range
+    Dim cel As Range
+    Dim interIPN As Range
+    Dim interData As Range
+    
+    ' Monitora:
+    ' J = DATA
+    ' X = IPN
+    Set rngData = Me.Range("J2:J" & Me.Rows.Count)
+    Set rngIPN = Me.Range("X2:X" & Me.Rows.Count)
+    Set rngMonitorado = Union(rngData, rngIPN)
+    
+    If Intersect(Target, rngMonitorado) Is Nothing Then Exit Sub
+    
+    On Error GoTo Fim
+    
+    Application.EnableEvents = False
+    
+    ' =====================================================
+    ' SE ALTERAR DATA NA COLUNA J, RECALCULA DIA DA SEMANA
+    ' =====================================================
+    Set interData = Intersect(Target, rngData)
+    
+    If Not interData Is Nothing Then
+    
+        For Each cel In interData
+        
+            If IsDate(cel.Value) Then
+                Me.Cells(cel.Row, "K").Value = DiaSemanaHoraExtra(cel.Value)
+            Else
+                Me.Cells(cel.Row, "K").ClearContents
+            End If
+            
+        Next cel
+        
+    End If
+    
+    ' =====================================================
+    ' SE ALTERAR IPN NA COLUNA X, RECALCULA DADOS DO IPN
+    ' =====================================================
+    Set interIPN = Intersect(Target, rngIPN)
+    
+    If Not interIPN Is Nothing Then
+    
+        For Each cel In interIPN
+        
+            If Trim(cel.Value) = "" Then
+            
+                ' Limpa dados dependentes do IPN
+                Me.Cells(cel.Row, "Z").ClearContents
+                Me.Cells(cel.Row, "AA").ClearContents
+                Me.Cells(cel.Row, "AB").ClearContents
+                
+                Me.Cells(cel.Row, "L").ClearContents
+                Me.Cells(cel.Row, "M").ClearContents
+                
+                Me.Cells(cel.Row, "N").ClearContents
+                Me.Cells(cel.Row, "O").ClearContents
+                Me.Cells(cel.Row, "P").ClearContents
+                Me.Cells(cel.Row, "Q").ClearContents
+            
+            Else
+            
+                ' Busca colaborador, turno, BPU, MOD/MOS
+                BuscarLinha cel.Row
+                
+                ' Recalcula K, N, O, P e Q
+                CalcularCamposHoraExtraVBA Me, cel.Row
+                
+            End If
+            
+        Next cel
+        
+    End If
+
+Fim:
+    Application.EnableEvents = True
+
+End Sub

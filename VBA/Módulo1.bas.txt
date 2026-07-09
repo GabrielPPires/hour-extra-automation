@@ -1,0 +1,486 @@
+Sub BuscarLinha(ByVal linha As Long)
+
+    Dim wsHE As Worksheet
+    Dim wsColab As Worksheet
+    Dim ipns As Variant
+    Dim i As Long
+    Dim nomes As String
+    Dim turnos As String
+    Dim bpus As String
+    Dim modCount As Long
+    Dim mosCount As Long
+    Dim rngColab As Range
+    Dim cel As Range
+    Dim ipn As String
+    Dim tipo As String
+    
+    Set wsHE = ThisWorkbook.Sheets("HORA EXTRA")
+    Set wsColab = ThisWorkbook.Sheets("COLABORADORES")
+    
+    Set rngColab = wsColab.Range("A2:F" & wsColab.Cells(wsColab.Rows.Count, "A").End(xlUp).Row)
+    
+    wsHE.Cells(linha, "Z").ClearContents
+    wsHE.Cells(linha, "AA").ClearContents
+    wsHE.Cells(linha, "AB").ClearContents
+    wsHE.Cells(linha, "L").ClearContents
+    wsHE.Cells(linha, "M").ClearContents
+    
+    If Trim(wsHE.Cells(linha, "X").Value) = "" Then Exit Sub
+
+wsHE.Cells(linha, "X").Value = NormalizarListaIPN(wsHE.Cells(linha, "X").Value)
+wsHE.Cells(linha, "X").WrapText = True
+
+ipns = Split(wsHE.Cells(linha, "X").Value, vbLf)
+    
+    For i = LBound(ipns) To UBound(ipns)
+    
+        ipn = UCase(Trim(ipns(i)))
+        
+        If ipn <> "" Then
+        
+            Set cel = rngColab.Columns(1).Find(What:=ipn, LookIn:=xlValues, LookAt:=xlWhole, MatchCase:=False)
+            
+            If Not cel Is Nothing Then
+            
+                nomes = nomes & IIf(nomes = "", "", vbLf) & cel.Offset(0, 1).Value
+                turnos = turnos & IIf(turnos = "", "", vbLf) & cel.Offset(0, 2).Value
+                bpus = bpus & IIf(bpus = "", "", vbLf) & cel.Offset(0, 4).Value
+                
+                tipo = UCase(Trim(cel.Offset(0, 5).Value))
+                
+                If tipo = "MOD" Then
+                    modCount = modCount + 1
+                ElseIf tipo = "MOS" Then
+                    mosCount = mosCount + 1
+                End If
+            
+            End If
+        
+        End If
+    
+    Next i
+    
+    wsHE.Cells(linha, "Z").Value = nomes
+    wsHE.Cells(linha, "AA").Value = turnos
+    wsHE.Cells(linha, "AB").Value = bpus
+    
+    wsHE.Cells(linha, "L").Value = modCount
+    wsHE.Cells(linha, "M").Value = mosCount
+    
+    wsHE.Cells(linha, "Z").WrapText = True
+    wsHE.Cells(linha, "AA").WrapText = True
+    wsHE.Cells(linha, "AB").WrapText = True
+
+End Sub
+
+
+Sub SincronizarIPNs()
+
+    Dim wsSolic As Worksheet
+    Dim wsHE As Worksheet
+    Dim ultimaLinha As Long
+    Dim rngVisivel As Range
+    Dim celSolic As Range
+    Dim linhaSolic As Long
+    Dim linhaDestino As Long
+    Dim idSolic As String
+    Dim textoIPN As String
+    Dim eventosAntes As Boolean
+    
+    eventosAntes = Application.EnableEvents
+    Application.EnableEvents = False
+    
+    On Error GoTo Fim
+    
+    Set wsSolic = ThisWorkbook.Sheets("SOLICITAÇÕES")
+    Set wsHE = ThisWorkbook.Sheets("HORA EXTRA")
+    
+    wsHE.Range("AD1").Value = "ID_SOLIC"
+    
+    ultimaLinha = wsSolic.Cells(wsSolic.Rows.Count, "A").End(xlUp).Row
+    
+    On Error Resume Next
+    Set rngVisivel = wsSolic.Range("A2:A" & ultimaLinha).SpecialCells(xlCellTypeVisible)
+    On Error GoTo Fim
+    
+    If rngVisivel Is Nothing Then GoTo Fim
+    
+    For Each celSolic In rngVisivel
+    
+        linhaSolic = celSolic.Row
+        
+        idSolic = Trim(CStr(wsSolic.Cells(linhaSolic, "A").Value))
+        textoIPN = NormalizarListaIPN(wsSolic.Cells(linhaSolic, "O").Value)
+        
+        If idSolic <> "" And textoIPN <> "" Then
+        
+            If Not IDJaExisteNaHoraExtra(wsHE, idSolic) Then
+            
+                linhaDestino = ProximaLinhaHoraExtra(wsHE)
+                
+                wsHE.Cells(linhaDestino, "X").ClearContents
+                wsHE.Cells(linhaDestino, "Z").ClearContents
+                wsHE.Cells(linhaDestino, "AA").ClearContents
+                wsHE.Cells(linhaDestino, "AB").ClearContents
+                wsHE.Cells(linhaDestino, "L").ClearContents
+                wsHE.Cells(linhaDestino, "M").ClearContents
+                
+                wsHE.Cells(linhaDestino, "X").Value = textoIPN
+wsHE.Cells(linhaDestino, "X").WrapText = True
+
+wsHE.Cells(linhaDestino, "AD").Value = idSolic
+
+' Preenche dados vindos da SOLICITAÇÕES apenas para ID novo
+Call PreencherDadosSolicitacaoNaHoraExtra(wsSolic, wsHE, linhaSolic, linhaDestino)
+
+' Busca dados dos IPNs: colaborador, turno, BPU, MOD/MOS
+BuscarLinha linhaDestino
+
+' Calcula K, N, O, P e Q por VBA
+Call CalcularCamposHoraExtraVBA(wsHE, linhaDestino)
+            
+            End If
+        
+        End If
+    
+    Next celSolic
+
+Fim:
+    Application.EnableEvents = eventosAntes
+
+End Sub
+
+
+Function IDJaExisteNaHoraExtra(ByVal wsHE As Worksheet, ByVal idSolic As String) As Boolean
+
+    Dim ultimaLinha As Long
+    Dim linhaLimite As Long
+    Dim cel As Range
+    
+    linhaLimite = LinhaQuemVaiExecutar(wsHE)
+    
+    If linhaLimite > 0 Then
+        ultimaLinha = linhaLimite - 1
+    Else
+        ultimaLinha = wsHE.Cells(wsHE.Rows.Count, "AD").End(xlUp).Row
+    End If
+    
+    If ultimaLinha < 11 Then
+        IDJaExisteNaHoraExtra = False
+        Exit Function
+    End If
+    
+    Set cel = wsHE.Range("AD11:AD" & ultimaLinha).Find(What:=idSolic, LookIn:=xlValues, LookAt:=xlWhole)
+    
+    IDJaExisteNaHoraExtra = Not cel Is Nothing
+
+End Function
+
+
+Function ProximaLinhaHoraExtra(ByVal wsHE As Worksheet) As Long
+
+    Dim linhaLimite As Long
+    Dim i As Long
+    
+    linhaLimite = LinhaQuemVaiExecutar(wsHE)
+    
+    If linhaLimite = 0 Then
+        linhaLimite = wsHE.Cells(wsHE.Rows.Count, "X").End(xlUp).Row + 1
+        If linhaLimite < 11 Then linhaLimite = 11
+    End If
+    
+    For i = 11 To linhaLimite - 1
+    
+        If Trim(wsHE.Cells(i, "X").Value) = "" And Trim(wsHE.Cells(i, "AD").Value) = "" Then
+            ProximaLinhaHoraExtra = i
+            Exit Function
+        End If
+        
+    Next i
+    
+    wsHE.Rows(linhaLimite).Insert Shift:=xlDown
+    
+    wsHE.Rows(linhaLimite - 1).Copy
+    wsHE.Rows(linhaLimite).PasteSpecial Paste:=xlPasteFormats
+    wsHE.Rows(linhaLimite).PasteSpecial Paste:=xlPasteFormulasAndNumberFormats
+    Application.CutCopyMode = False
+    
+    wsHE.Cells(linhaLimite, "X").ClearContents
+    wsHE.Cells(linhaLimite, "Z").ClearContents
+    wsHE.Cells(linhaLimite, "AA").ClearContents
+    wsHE.Cells(linhaLimite, "AB").ClearContents
+    wsHE.Cells(linhaLimite, "L").ClearContents
+    wsHE.Cells(linhaLimite, "M").ClearContents
+    wsHE.Cells(linhaLimite, "AD").ClearContents
+    
+    ProximaLinhaHoraExtra = linhaLimite
+
+End Function
+
+
+Function LinhaQuemVaiExecutar(ByVal wsHE As Worksheet) As Long
+
+    Dim cel As Range
+    
+    Set cel = wsHE.Cells.Find(What:="Quem vai executar:", LookIn:=xlValues, LookAt:=xlPart)
+    
+    If cel Is Nothing Then
+        LinhaQuemVaiExecutar = 0
+    Else
+        LinhaQuemVaiExecutar = cel.Row
+    End If
+
+End Function
+
+Sub PreencherDadosSolicitacaoNaHoraExtra( _
+    ByVal wsSolic As Worksheet, _
+    ByVal wsHE As Worksheet, _
+    ByVal linhaSolic As Long, _
+    ByVal linhaHE As Long)
+
+    ' Dados principais vindos da aba SOLICITAÇÕES
+    wsHE.Cells(linhaHE, "A").Value = wsSolic.Cells(linhaSolic, "C").Value   ' GATM / Nome
+    wsHE.Cells(linhaHE, "B").Value = wsSolic.Cells(linhaSolic, "D").Value   ' Área
+    wsHE.Cells(linhaHE, "C").Value = wsSolic.Cells(linhaSolic, "E").Value   ' Trabalho / Posto
+    wsHE.Cells(linhaHE, "D").Value = wsSolic.Cells(linhaSolic, "F").Value   ' Descrição
+    wsHE.Cells(linhaHE, "E").Value = wsSolic.Cells(linhaSolic, "G").Value   ' Impacto
+    wsHE.Cells(linhaHE, "F").Value = wsSolic.Cells(linhaSolic, "H").Value   ' Ganho
+    wsHE.Cells(linhaHE, "G").Value = wsSolic.Cells(linhaSolic, "I").Value   ' Horas
+    wsHE.Cells(linhaHE, "H").Value = wsSolic.Cells(linhaSolic, "J").Value   ' Origem
+    wsHE.Cells(linhaHE, "I").Value = wsSolic.Cells(linhaSolic, "K").Value   ' CC
+    wsHE.Cells(linhaHE, "J").Value = wsSolic.Cells(linhaSolic, "L").Value   ' Data
+    
+    ' Campo calculado por VBA
+    wsHE.Cells(linhaHE, "K").Value = DiaSemanaHoraExtra(wsHE.Cells(linhaHE, "J").Value)
+    
+    ' Campos adicionais vindos de SOLICITAÇÕES
+    wsHE.Cells(linhaHE, "R").Value = wsSolic.Cells(linhaSolic, "Q").Value   ' Observações
+    wsHE.Cells(linhaHE, "T").Value = wsSolic.Cells(linhaSolic, "M").Value   ' Criticidade
+    wsHE.Cells(linhaHE, "V").Value = wsSolic.Cells(linhaSolic, "R").Value   ' Status
+    wsHE.Cells(linhaHE, "W").Value = wsSolic.Cells(linhaSolic, "N").Value   ' Qtdd
+    wsHE.Cells(linhaHE, "Y").Value = wsSolic.Cells(linhaSolic, "P").Value   ' Sugestão de colaborador
+    
+    ' Campos manuais/futuro: por enquanto não mexer
+    wsHE.Cells(linhaHE, "S").ClearContents ' Observações GATM
+    wsHE.Cells(linhaHE, "U").ClearContents ' ID Trabalho
+    
+    wsHE.Cells(linhaHE, "D").WrapText = True
+    wsHE.Cells(linhaHE, "R").WrapText = True
+    wsHE.Cells(linhaHE, "Y").WrapText = True
+
+End Sub
+
+
+Sub CalcularCamposHoraExtraVBA(ByVal wsHE As Worksheet, ByVal linhaHE As Long)
+
+    Dim horas As Double
+    Dim modQ As Double
+    Dim mosQ As Double
+    Dim modH As Double
+    Dim mosH As Double
+    
+    horas = Val(wsHE.Cells(linhaHE, "G").Value)
+    modQ = Val(wsHE.Cells(linhaHE, "L").Value)
+    mosQ = Val(wsHE.Cells(linhaHE, "M").Value)
+    
+    modH = modQ * horas
+    mosH = mosQ * horas
+    
+    wsHE.Cells(linhaHE, "N").Value = modQ + mosQ
+    wsHE.Cells(linhaHE, "O").Value = modH
+    wsHE.Cells(linhaHE, "P").Value = mosH
+    wsHE.Cells(linhaHE, "Q").Value = modH + mosH
+    
+    wsHE.Cells(linhaHE, "K").Value = DiaSemanaHoraExtra(wsHE.Cells(linhaHE, "J").Value)
+
+End Sub
+
+
+Function DiaSemanaHoraExtra(ByVal valorData As Variant) As String
+
+    Dim n As Long
+    
+    If Not IsDate(valorData) Then
+        DiaSemanaHoraExtra = ""
+        Exit Function
+    End If
+    
+    n = Weekday(CDate(valorData), vbSunday)
+    
+    Select Case n
+        Case 1
+            DiaSemanaHoraExtra = "4 - Dom"
+        Case 2
+            DiaSemanaHoraExtra = "5 - Seg"
+        Case 3
+            DiaSemanaHoraExtra = "6 - Ter"
+        Case 4
+            DiaSemanaHoraExtra = "7 - Qua"
+        Case 5
+            DiaSemanaHoraExtra = "1 - Qui"
+        Case 6
+            DiaSemanaHoraExtra = "2 - Sex"
+        Case 7
+            DiaSemanaHoraExtra = "3 - Sáb"
+    End Select
+
+End Function
+
+Sub RedefinirHoraExtraPeloModelo()
+
+    Const ABA_ORIGEM As String = "FORMATAÇÃO ORIGINAL"
+    Const ABA_DESTINO As String = "HORA EXTRA"
+    Const RANGE_MODELO As String = "A1:AE91"
+    Const COL_INICIO As String = "A"
+    Const COL_FIM As String = "AE"
+    Const LINHA_FINAL_MODELO As Long = 91
+    
+    Dim wsOrigem As Worksheet
+    Dim wsDestino As Worksheet
+    Dim ultimaLinhaDestino As Long
+    Dim i As Long
+    Dim resp As VbMsgBoxResult
+    Dim eventosAntes As Boolean
+    
+    resp = MsgBox( _
+        "Essa ação vai redefinir a aba HORA EXTRA usando o modelo da aba FORMATAÇÃO ORIGINAL." & vbCrLf & vbCrLf & _
+        "Será copiado o intervalo A1:AE91 da FORMATAÇÃO ORIGINAL para a HORA EXTRA." & vbCrLf & _
+        "Os dados atuais da HORA EXTRA serão apagados nessa área." & vbCrLf & vbCrLf & _
+        "Deseja continuar?", _
+        vbQuestion + vbYesNo, _
+        "Redefinir HORA EXTRA" _
+    )
+    
+    If resp <> vbYes Then Exit Sub
+    
+    On Error GoTo TratarErro
+    
+    eventosAntes = Application.EnableEvents
+    
+    Application.ScreenUpdating = False
+    Application.EnableEvents = False
+    Application.DisplayAlerts = False
+    
+    Set wsOrigem = ThisWorkbook.Sheets(ABA_ORIGEM)
+    Set wsDestino = ThisWorkbook.Sheets(ABA_DESTINO)
+    
+    ultimaLinhaDestino = UltimaLinhaUsadaPlanilha(wsDestino)
+    
+    If ultimaLinhaDestino < LINHA_FINAL_MODELO Then
+        ultimaLinhaDestino = LINHA_FINAL_MODELO
+    End If
+    
+    ' Remove filtros atuais da HORA EXTRA, se houver
+    On Error Resume Next
+    If wsDestino.AutoFilterMode Then wsDestino.AutoFilterMode = False
+    On Error GoTo TratarErro
+    
+    ' Limpa a área principal da HORA EXTRA
+    wsDestino.Range(COL_INICIO & "1:" & COL_FIM & ultimaLinhaDestino).Clear
+    
+    ' Copia modelo completo: valores, textos, fórmulas e formatação
+    wsOrigem.Range(RANGE_MODELO).Copy
+    
+    With wsDestino.Range("A1")
+        .PasteSpecial Paste:=xlPasteAll
+        .PasteSpecial Paste:=xlPasteColumnWidths
+    End With
+    
+    Application.CutCopyMode = False
+    
+    ' Copia altura das linhas do modelo
+    For i = 1 To LINHA_FINAL_MODELO
+        wsDestino.Rows(i).RowHeight = wsOrigem.Rows(i).RowHeight
+    Next i
+    
+    ' Reaplica filtro no cabeçalho
+    On Error Resume Next
+    wsDestino.Range("A1:AE1").AutoFilter
+    On Error GoTo TratarErro
+    
+    Application.DisplayAlerts = True
+    Application.EnableEvents = eventosAntes
+    Application.ScreenUpdating = True
+    
+    MsgBox "HORA EXTRA redefinida com sucesso!", vbInformation
+
+    Exit Sub
+
+TratarErro:
+    Application.DisplayAlerts = True
+    Application.EnableEvents = eventosAntes
+    Application.ScreenUpdating = True
+    
+    MsgBox "Erro ao redefinir a HORA EXTRA: " & Err.Description, vbExclamation
+
+End Sub
+
+
+Function UltimaLinhaUsadaPlanilha(ByVal ws As Worksheet) As Long
+
+    Dim cel As Range
+    
+    Set cel = ws.Cells.Find( _
+        What:="*", _
+        After:=ws.Range("A1"), _
+        LookIn:=xlFormulas, _
+        LookAt:=xlPart, _
+        SearchOrder:=xlByRows, _
+        SearchDirection:=xlPrevious, _
+        MatchCase:=False _
+    )
+    
+    If cel Is Nothing Then
+        UltimaLinhaUsadaPlanilha = 1
+    Else
+        UltimaLinhaUsadaPlanilha = cel.Row
+    End If
+
+End Function
+
+Function NormalizarListaIPN(ByVal texto As String) As String
+
+    Dim partes As Variant
+    Dim item As Variant
+    Dim resultado As String
+    Dim ipn As String
+    
+    texto = Trim(CStr(texto))
+    
+    If texto = "" Then
+        NormalizarListaIPN = ""
+        Exit Function
+    End If
+    
+    ' Padroniza quebras de linha
+    texto = Replace(texto, vbCrLf, vbLf)
+    texto = Replace(texto, vbCr, vbLf)
+    
+    ' Transforma separadores com hífen em quebra de linha
+    texto = Replace(texto, " - ", vbLf)
+    texto = Replace(texto, " – ", vbLf)
+    texto = Replace(texto, " — ", vbLf)
+    
+    ' Caso sobre hífen simples
+    texto = Replace(texto, "-", vbLf)
+    
+    ' Remove espaços duplos
+    Do While InStr(texto, "  ") > 0
+        texto = Replace(texto, "  ", " ")
+    Loop
+    
+    partes = Split(texto, vbLf)
+    
+    For Each item In partes
+    
+        ipn = UCase(Trim(CStr(item)))
+        
+        If ipn <> "" Then
+            resultado = resultado & IIf(resultado = "", "", vbLf) & ipn
+        End If
+    
+    Next item
+    
+    NormalizarListaIPN = resultado
+
+End Function

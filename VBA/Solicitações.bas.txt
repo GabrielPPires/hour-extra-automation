@@ -1,0 +1,93 @@
+Private Sub Worksheet_Change(ByVal Target As Range)
+
+    Static EmExecucao As Boolean
+    
+    Dim cel As Range
+    Dim texto As String
+    Dim wsColab As Worksheet
+    Dim nomeColab As Variant
+    Dim arrIPN() As String
+    Dim j As Long
+    Dim nomes As String
+    
+    If EmExecucao Then Exit Sub
+    EmExecucao = True
+    
+    On Error GoTo Fim
+    
+    If Intersect(Target, Me.Columns("O")) Is Nothing Then GoTo Fim
+    
+    Application.EnableEvents = False
+    
+    Set wsColab = ThisWorkbook.Sheets("COLABORADORES")
+    
+    For Each cel In Intersect(Target, Me.Columns("O"))
+    
+        If Trim(cel.Value) = "" Then
+        
+            ' Se apagar IPN em Solicitações, limpa nome na coluna P
+            cel.Offset(0, 1).ClearContents
+            
+        Else
+        
+            texto = WorksheetFunction.Trim(cel.Value)
+            
+            ' Se vier separado por hífen, transforma em quebra de linha
+            If InStr(texto, " - ") > 0 Then
+                texto = Replace(texto, " - ", vbLf)
+                texto = Replace(texto, "-", vbLf)
+            End If
+            
+            ' Remove espaços duplos
+            Do While InStr(texto, "  ") > 0
+                texto = Replace(texto, "  ", " ")
+            Loop
+            
+            ' Remove hífen final, se existir
+            If Right(texto, 1) = "-" Then
+                texto = Left(texto, Len(texto) - 1)
+            End If
+            
+            texto = Trim(texto)
+            
+            ' Atualiza a própria célula O com IPN tratado
+            cel.Value = texto
+            cel.WrapText = True
+            
+            ' Busca nomes na aba COLABORADORES e coloca na coluna P
+            nomes = ""
+            arrIPN = Split(texto, vbLf)
+            
+            For j = LBound(arrIPN) To UBound(arrIPN)
+            
+                arrIPN(j) = Trim(arrIPN(j))
+                
+                If arrIPN(j) <> "" Then
+                
+                    nomeColab = Application.VLookup(arrIPN(j), wsColab.Range("A:B"), 2, False)
+                    
+                    If Not IsError(nomeColab) Then
+                        nomes = nomes & IIf(nomes = "", "", vbLf) & nomeColab
+                    Else
+                        nomes = nomes & IIf(nomes = "", "", vbLf) & "IPN não encontrado: " & arrIPN(j)
+                    End If
+                    
+                End If
+            
+            Next j
+            
+            cel.Offset(0, 1).Value = nomes
+            cel.Offset(0, 1).WrapText = True
+            
+        End If
+        
+    Next cel
+    
+    ' Depois que arruma a aba Solicitações, manda os IPNs para Hora Extra
+    Call SincronizarIPNs
+
+Fim:
+    Application.EnableEvents = True
+    EmExecucao = False
+
+End Sub
