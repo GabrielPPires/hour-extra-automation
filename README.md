@@ -49,6 +49,7 @@ O projeto foi dividido em três partes principais.
 - Identificação automática de colaboradores;
 - Geração automática de indicadores;
 - Sincronização de solicitações;
+- Substituição de parte da lógica baseada em fórmulas por automações em VBA;
 - Recuperação automática da planilha operacional.
 
 ## Tecnologias Utilizadas
@@ -117,70 +118,6 @@ Tabela HORA EXTRA
 
 Dashboards e Indicadores Operacionais
 
-## Capturas do Projeto
-
-### Banco de Dados de Colaboradores
-
-Base auxiliar utilizada para identificação de colaboradores, cruzamento de IPNs, informações de turno, supervisor e classificação MOD/MOS.
-
-![Banco de 0-%20Banco%20de%20Dados.png
-
----
-
-### Processo ETL com Power Query
-
-Tratamento, transformação e preparação dos dados antes da consolidação operacional.
-
-IMAGES/03%20-%20Power%20Query.png
-
----
-
-### Consolidação de Dados
-
-Processo de integração e consolidação das informações através do Power Query.
-
-![Consolidação de Dados](IMAGES/05%20-%20Mesclageme%20fluxo%20Power%20Query.png
-
----
-
-### Atualização das Solicitações
-
-Atualização automática da base de solicitações utilizada pelo processo operacional.
-
-IMAGES/07%20-%20Atualização%20Solicitações.png
-
----
-
-### Processamento Automático com VBA
-
-Aplicação das regras de negócio e preenchimento automático dos dados operacionais.
-
-![Processamento VBA]s%20Atualizados%20agora%20por%20VBA.png
-
----
-
-### Identificação Automática por IPN
-
-Busca e preenchimento automático das informações dos colaboradores através do IPN informado.
-
-IMAGES/10%20-%20IPN%20Puxa%20dados.png
-
----
-
-### Recuperação da Planilha Operacional
-
-Funcionalidade desenvolvida para restaurar automaticamente a estrutura original da planilha operacional.
-
-IMAGES/11%20-%20Redefinir%20Aba.png
-
----
-
-### Planilha Restaurada
-
-Resultado do processo de recuperação automática da planilha.
-
-IMAGES/12%20-%20Aba%20Redefinida.png
-
 ## Principais Funcionalidades
 
 - Banco auxiliar de colaboradores;
@@ -202,6 +139,7 @@ Durante o desenvolvimento deste projeto aprimorei conhecimentos em:
 - Power Query;
 - ETL;
 - Modelagem de Dados;
+- Conversão de processos baseados em fórmulas para automações VBA;
 - Automação de Processos;
 - Dashboards Operacionais;
 - Integração Microsoft Forms;
@@ -216,6 +154,7 @@ TEMPLATES/
 VBA/
 README.md
 ```
+
 ## Autor
 
 Gabriel Pereira
