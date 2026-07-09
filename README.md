@@ -121,33 +121,63 @@ Dashboards e Indicadores Operacionais
 
 ### Banco de Dados de Colaboradores
 
-IMAGES/01%20-%20Banco%20de%20Dados.png
+Base auxiliar utilizada para identificação de colaboradores, cruzamento de IPNs, informações de turno, supervisor e classificação MOD/MOS.
+
+![Banco de 0-%20Banco%20de%20Dados.png
+
+---
 
 ### Processo ETL com Power Query
 
+Tratamento, transformação e preparação dos dados antes da consolidação operacional.
+
 IMAGES/03%20-%20Power%20Query.png
+
+---
 
 ### Consolidação de Dados
 
-IMAGES/05%20-%20Mesclagem%20de%20Semana%20atual%20e%20fluxo%20Power%20Query.png
+Processo de integração e consolidação das informações através do Power Query.
+
+![Consolidação de Dados](IMAGES/05%20-%20Mesclageme%20fluxo%20Power%20Query.png
+
+---
 
 ### Atualização das Solicitações
 
+Atualização automática da base de solicitações utilizada pelo processo operacional.
+
 IMAGES/07%20-%20Atualização%20Solicitações.png
+
+---
 
 ### Processamento Automático com VBA
 
-IMAGES/09%20-%20Dados%20Atualizados%20agora%20por%20VBA.png
+Aplicação das regras de negócio e preenchimento automático dos dados operacionais.
+
+![Processamento VBA]s%20Atualizados%20agora%20por%20VBA.png
+
+---
 
 ### Identificação Automática por IPN
 
+Busca e preenchimento automático das informações dos colaboradores através do IPN informado.
+
 IMAGES/10%20-%20IPN%20Puxa%20dados.png
+
+---
 
 ### Recuperação da Planilha Operacional
 
+Funcionalidade desenvolvida para restaurar automaticamente a estrutura original da planilha operacional.
+
 IMAGES/11%20-%20Redefinir%20Aba.png
 
+---
+
 ### Planilha Restaurada
+
+Resultado do processo de recuperação automática da planilha.
 
 IMAGES/12%20-%20Aba%20Redefinida.png
 
